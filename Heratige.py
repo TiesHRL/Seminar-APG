@@ -3,13 +3,19 @@
 Created on Tue Apr 26 19:29:50 2022
 
 @author: tiesh
+
+This script pulls two pieces of open source code together to adapt data from the Farmtrace sever into that necessary of an existing code
+
+The family tree code is found on https://gist.github.com/AhsenParwez/eb0fd2450ad230c5fb30d99d12c2693f
 """
 
+#initially import necessary packages
 import pyodbc
 import pandas as pd
 from graphviz import Digraph
 
 
+#connect and pull data from azure server
 server = 'Farmtrace' 
 database = 'FarmTrace.Cows' 
 username = 'yourusername' 
@@ -17,11 +23,12 @@ password = 'databasename'
 cnxn = pyodbc.connect('DRIVER={SQL Server};SERVER='+server+';DATABASE='+database+';UID='+username+';PWD='+ password)
 cursor = cnxn.cursor()
 
+#all columns are taken from the database
 query = "SELECT *, FROM Farmtrace.cow;"
 df = pd.read_sql(query, cnxn)
-df.insert(4,"Relation_name")
-df.insert(5,"Relation")
 
+#create new dataframe in the form used by the familytree script
+#Assigning each cows parents and definining the earliest ancestors to start the list
 ancestry = pd.DataFrame(columns = ['Person 1', 'Relation', 'person_2', 'Gender'])
 i = 1
 for cow in df['CowUNID']:   
@@ -37,14 +44,21 @@ for cow in df['CowUNID']:
         ancestry.iloc[i]['Relation'] = 'child'
         ancestry.iloc[i]['Gender'] = df.iloc[cow,'sex']
         ancestry.iloc[i]['person_2'] = father
-    if mother: 
+        i=+1
         ancestry.iloc[i]['Person 1'] = cow
         ancestry.iloc[i]['Relation'] = 'child'
         ancestry.iloc[i]['Gender'] = df.iloc[cow,'sex']
         ancestry.iloc[i]['Person 2'] = mother
+        #defining spouses aka a two parents to follow a family tree
+        i=+1 
+        ancestry.iloc[i]['Person 1'] = father
+        ancestry.iloc[i]['Relation'] = 'spouse'
+        ancestry.iloc[i]['Gender'] = 'male'
+        ancestry.iloc[i]['Person 2'] = mother
     i=+1
 
 
+#This is the preset package that would make the family tree
 earl_ans = ancestry.loc[ancestry['Relation'] == 'Earliest Ancestor', 'Person 1'].iloc[0]
 ancestry['recorded_ind'] = 0    # Flag for indicating individuals whose data has been recorded in the tree
 
